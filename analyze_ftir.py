@@ -51,25 +51,41 @@ runs = load_runs(EXCEL_PATH)
 # ─────────────────────────────────────────────
 IR_TABLE = [
     # (low, high, functional_group, bond, vibration_type, compound_class, biological_relevance)
+    # ── O–H / N–H region (3050–3900) ──
+    (3700, 3900, "O–H stretch (overtone/combination)","O–H","overtone / combination band","Water vapour, gas-phase water",      "Atmospheric water vapour or instrument noise above 3700 cm⁻¹"),
     (3600, 3700, "Alcohol / Water",          "O–H",    "stretch (free)",           "Alcohols, water",                    "Free hydroxyl groups, trace water"),
     (3400, 3600, "Alcohol / Carbohydrate",   "O–H",    "stretch (H-bonded)",       "Alcohols, sugars, water",            "Glucose, raffinose, HES (preservation solutes)"),
     (3300, 3500, "Amine / Amide",            "N–H",    "stretch",                  "Primary/secondary amines, amides",   "Proteins, amino acids (glutathione, adenosine)"),
     (3200, 3400, "Water / Carbohydrate",     "O–H",    "stretch (broad, H-bonded)","Water, polysaccharides",             "Aqueous matrix, HES backbone"),
+    # ── C–H stretch region (2700–3200) ──
     (2950, 2970, "Alkyl (lipid)",            "C–H",    "asym. stretch –CH₃",       "Lipids, fatty acids, proteins",      "Lipid membrane fragments"),
     (2910, 2935, "Alkyl (lipid)",            "C–H",    "asym. stretch –CH₂–",      "Lipids, fatty acids",                "Phospholipid acyl chains"),
     (2855, 2875, "Alkyl (lipid)",            "C–H",    "sym. stretch –CH₂–",       "Lipids, fatty acids",                "Phospholipid acyl chains (toxicity marker if elevated)"),
     (2830, 2860, "Alkyl",                    "C–H",    "sym. stretch –CH₃",        "Methyl-bearing molecules",           "Various metabolites"),
+    (2700, 2830, "Aldehyde / Overtone",      "C–H / N–H","aldehyde C–H stretch / Fermi resonance","Aldehydes, amines","Aldehyde C–H at ~2720 cm⁻¹ (lipid peroxidation marker); N–H overtone"),
+    # ── Overtone / combination / CO₂ region (1900–2700) ──
     (2500, 2700, "Carboxylic acid",          "O–H",    "stretch (very broad)",     "Carboxylic acids",                   "Organic acids, metabolic byproducts"),
+    (2280, 2500, "CO₂ / Combination band",  "O=C=O",  "antisym. stretch / overtone","Atmospheric CO₂, combination bands","CO₂ at ~2349 cm⁻¹ (instrument / atmospheric); overtones 2400–2500 cm⁻¹"),
     (2100, 2280, "Nitrile / Isocyanate",     "C≡N / C=N=O", "stretch",             "Nitriles, isocyanates",              "Rare in normal fluid; toxicity indicator if present"),
-    (1870, 1900, "Anhydride / Overtone",     "C=O",    "asym. stretch",            "Anhydrides, overtones",              "Artefact or degradation product"),
+    (2033, 2100, "Combination band",         "C–O / C–C","combination / overtone",  "Carbohydrates, alcohols",            "Weak combination bands of carbohydrate C–O stretches"),
+    (1960, 2033, "Overtone / Combination",   "C=O",    "overtone",                 "Carbonyl-containing molecules",      "Second overtone of C=O bending; weak background feature"),
+    # ── Carbonyl region (1730–1960) ──
+    (1900, 1960, "Overtone / Combination",   "C=O",    "overtone / combination",   "Background, overtones",              "Weak combination bands; no strong absorbers expected here"),
+    (1860, 1900, "Anhydride",                "C=O",    "asym. stretch",            "Anhydrides",                         "Artefact or degradation product"),
+    (1820, 1860, "Anhydride / Lactone",      "C=O",    "sym. stretch",             "Anhydrides, five-membered lactones", "Cyclic anhydride or lactone — degradation product"),
+    (1755, 1820, "Ester / Carbonate",        "C=O",    "stretch",                  "Esters, carbonates",                 "Lipid esters, carbonate esters — membrane-derived"),
     (1735, 1755, "Ester / Lipid",            "C=O",    "stretch",                  "Esters, triglycerides, phospholipids","Lipid esters — membrane integrity marker"),
     (1710, 1730, "Carboxylic acid / Aldehyde","C=O",   "stretch",                  "Carboxylic acids, aldehydes",        "Free fatty acids, aldehyde metabolites (oxidative stress)"),
+    # ── Amide / protein region (1570–1710) ──
     (1680, 1700, "Amide I (unordered)",      "C=O",    "stretch (unordered protein)","Proteins",                         "Denatured/unordered protein — ↑ in stressed fluid"),
     (1650, 1680, "Amide I (α-helix)",        "C=O",    "stretch (α-helix)",         "Proteins (albumin, enzymes)",        "Major protein secondary structure band"),
     (1620, 1650, "Amide I (β-sheet) / Water","C=O / H–O–H","stretch / bend",       "Proteins, water",                   "β-sheet proteins; water bending at ~1640 cm⁻¹"),
     (1590, 1620, "Aromatic / C=C",          "C=C",    "stretch",                   "Aromatics, purines",                 "Adenosine ring vibration, aromatic amino acids"),
+    (1570, 1590, "C=C / Aromatic",          "C=C",    "stretch",                   "Conjugated systems, aromatics",      "Purine / pyrimidine ring vibrations (adenosine, nucleotides)"),
     (1535, 1570, "Amide II",                 "N–H / C–N","bend + stretch",          "Proteins, peptides",                 "Coupled N-H bend/C-N stretch — protein content"),
+    (1510, 1535, "Amide II (extended)",      "N–H / C–N","bend + C–N stretch",      "Proteins, aromatic amino acids",     "Amide II tail; tyrosine ring vibration ~1515 cm⁻¹"),
     (1480, 1510, "Amide II / Aromatic",      "N–H / C=C","bend",                   "Proteins, aromatic rings",           "Secondary protein band"),
+    # ── Fingerprint region (400–1480) ──
     (1445, 1480, "Lipid / Protein",          "C–H",    "scissoring –CH₂–",         "Lipids, aliphatic proteins",         "Fatty acid chain length indicator"),
     (1395, 1445, "Carboxylate",              "COO⁻",   "sym. stretch",              "Amino acids, fatty acid salts",      "Ionised carboxylate (amino acids, glutathione)"),
     (1365, 1395, "Alkyl / Nitrate",          "C–H / N–O","bending / stretch",       "tert-butyl, nitrates",              "Hydroxyethyl groups, inorganic nitrate"),
@@ -169,6 +185,7 @@ REGIONS = [
     (1800, 2800, "Overtone / Combination"),
     (2800, 3050, "C–H Stretch (Lipids)"),
     (3050, 3700, "O–H / N–H Stretch"),
+    (3700, 3900, "O–H Overtone / Atmospheric"),
 ]
 
 def get_region(wn):
@@ -220,6 +237,7 @@ REGION_COLORS = {
     "Overtone / Combination":     "#3498db",
     "C–H Stretch (Lipids)":       "#9b59b6",
     "O–H / N–H Stretch":          "#e91e8c",
+    "O–H Overtone / Atmospheric": "#b0bec5",
 }
 
 # ─────────────────────────────────────────────
