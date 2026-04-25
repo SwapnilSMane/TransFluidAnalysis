@@ -56,9 +56,11 @@ select.fluid-select:focus{border-color:var(--accent)}
 .result-header{background:linear-gradient(135deg,var(--header1) 0%,var(--header2) 100%);color:#fff;padding:40px 52px 32px}
 .result-header h1{font-size:1.9rem;font-weight:800;letter-spacing:-.5px;margin-bottom:4px}
 .result-header .subtitle{opacity:.78;font-size:.95rem;margin-bottom:24px}
-.rh-meta{display:flex;gap:32px;flex-wrap:wrap}
-.rh-item span{font-size:.72rem;opacity:.7;text-transform:uppercase;letter-spacing:.5px;display:block}
-.rh-item b{font-size:1.4rem;font-weight:700}
+.rh-meta{display:flex;gap:14px;flex-wrap:wrap;margin-top:4px}
+.rh-item{background:rgba(255,255,255,.13);border-radius:8px;padding:11px 17px;min-width:120px}
+.rh-item .ri-lbl{font-size:.68rem;text-transform:uppercase;letter-spacing:.5px;opacity:.75;display:block}
+.rh-item .ri-val{font-size:1.45rem;font-weight:700;margin-top:2px;display:block}
+.rh-item .ri-sub{font-size:.72rem;opacity:.72;margin-top:1px;display:block}
 .verdict-badge{display:inline-flex;align-items:center;gap:8px;padding:6px 16px;border-radius:20px;font-weight:700;font-size:.92rem;margin-top:12px}
 .verdict-badge.Low{background:#d4edda;color:#155724}
 .verdict-badge.Moderate{background:#fff3cd;color:#856404}
@@ -111,9 +113,10 @@ select.fluid-select:focus{border-color:var(--accent)}
 .concern-fill{height:100%;border-radius:5px;transition:width .6s}
 
 /* ── CHART CARDS ── */
-.chart-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:4px;box-shadow:var(--shadow);overflow:hidden;margin-bottom:20px}
-.chart-title{font-size:.85rem;font-weight:600;color:var(--muted);padding:14px 18px 4px;text-transform:uppercase;letter-spacing:.06em}
+.chart-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:0;box-shadow:var(--shadow);overflow:visible;margin-bottom:20px}
+.chart-title{font-size:.85rem;font-weight:600;color:var(--muted);padding:14px 18px 6px;text-transform:uppercase;letter-spacing:.06em}
 .plot-2col{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px}
+.plot-2col>*,.two-col>*{min-width:0}
 
 /* ── TABLES ── */
 .table-wrap{overflow-x:auto;border-radius:8px;border:1px solid var(--border);box-shadow:var(--shadow)}
@@ -187,8 +190,8 @@ footer{background:#fff;border-top:1px solid var(--border);padding:24px 52px;font
     <!-- Format guide -->
     <div class="format-guide">
       &#128204; <b>Accepted input formats (auto-detected):</b><br>
-      &bull; <b>Single file, one run</b> &mdash; two columns: Wavenumber | Intensity &nbsp;&nbsp;
-      &bull; <b>Single file, multiple runs</b> &mdash; side-by-side with <code style="background:#dbeafe;padding:1px 5px;border-radius:3px;font-size:.82rem">RUN X</code> headers in row&nbsp;1<br>
+      &bull; <b>Single file, one run</b> &mdash; two columns: Wavenumber | Intensity &nbsp;&nbsp; <br>
+      &bull; <b>Single file, multiple runs</b> &mdash; side-by-side with <code style="background:#dbeafe;padding:1px 5px;border-radius:3px;font-size:.82rem">RUN X</code> headers in row&nbsp;1<br> 
       &bull; <b>Multiple files</b> &mdash; one <code style="background:#dbeafe;padding:1px 5px;border-radius:3px;font-size:.82rem">.xlsx</code> per run (select all at once)
     </div>
 
@@ -346,6 +349,15 @@ const REGION_COLORS = {
   "C–H Stretch (Lipids)":"#9b59b6","O–H / N–H Stretch":"#e91e63",
   "O–H Overtone / Atmospheric":"#95a5a6"
 };
+
+function regionShapes(){
+  return REGIONS.map(([lo,hi,name])=>({
+    type:'rect',xref:'x',yref:'paper',
+    x0:lo,x1:hi,y0:0,y1:1,
+    fillcolor:REGION_COLORS[name]||'#aaa',
+    opacity:0.05,line:{width:0},
+  }));
+}
 
 const TOXICITY_MARKERS = [
   {name:"Protein denaturation (Amide I shift)",band_label:"Amide I ~1650 cm⁻¹",bins:[1650,1660,1670],direction:"shift",description:"Shift to ~1620–1630 cm⁻¹ indicates β-sheet aggregation / protein unfolding"},
@@ -543,9 +555,14 @@ function cc(title,chartId){const wrap=document.createElement('div');wrap.classNa
 
 // chart: spectral overlay
 function plotOverlay(res,container){
-  const traces=res.runNames.map((name,i)=>{const pts=[...res.runs[name]].sort((a,b)=>a.wavenumber-b.wavenumber);return{x:pts.map(p=>p.wavenumber),y:pts.map(p=>p.intensity),type:'scatter',mode:'lines',name,line:{color:res.colorMap[name],width:1.3},opacity:.85};});
+  const traces=res.runNames.map((name)=>{
+    const pts=[...res.runs[name]].sort((a,b)=>a.wavenumber-b.wavenumber);
+    const cd=pts.map(p=>{const a=assignPeak(p.wavenumber);const reg=getRegion(p.wavenumber);return[a.functional_group||'—',a.compound_class||'—',a.biological_relevance||'—',reg];});
+    return{x:pts.map(p=>p.wavenumber),y:pts.map(p=>p.intensity),customdata:cd,type:'scatter',mode:'lines',name,line:{color:res.colorMap[name],width:1.3},opacity:.85,
+      hovertemplate:'<b>%{x:.0f} cm⁻¹</b>  |  Intensity: %{y:.5f}<br><b>%{customdata[0]}</b><br>%{customdata[1]}<br><i style="color:#888">%{customdata[2]}</i><br><span style="color:#aaa">%{customdata[3]}</span><extra>%{fullData.name}</extra>'};
+  });
   const{wrap,d}=cc('Spectral Overlay — all runs','ov-'+Date.now());container.appendChild(wrap);
-  Plotly.newPlot(d,traces,L({height:380,margin:{t:10,b:52,l:62,r:20},xaxis:{title:'Wavenumber (cm⁻¹)',autorange:'reversed',zeroline:false},yaxis:{title:'Absorbance'},showlegend:res.nRuns<=12}),CFG);
+  Plotly.newPlot(d,traces,L({height:380,margin:{t:10,b:52,l:62,r:20},xaxis:{title:'Wavenumber (cm⁻¹)',autorange:'reversed',zeroline:false},yaxis:{title:'Absorbance'},showlegend:res.nRuns<=12,shapes:regionShapes()}),CFG);
 }
 
 // chart: mean ± SD
@@ -557,8 +574,8 @@ function plotMeanBand(res,container){
   Plotly.newPlot(d,[
     {x,y:m.map((v,i)=>v+s[i]),type:'scatter',mode:'lines',line:{width:0},showlegend:false,hoverinfo:'skip'},
     {x,y:m.map((v,i)=>Math.max(0,v-s[i])),type:'scatter',mode:'lines',fill:'tonexty',fillcolor:'rgba(41,128,185,0.12)',line:{width:0},name:'±1 SD',hoverinfo:'skip'},
-    {x,y:m,type:'scatter',mode:'lines',name:'Mean',line:{color:'#2980b9',width:2.2},hovertemplate:'<b>%{x:.0f} cm⁻¹</b><br>Mean: %{y:.5f}<extra></extra>'},
-  ],L({height:320,xaxis:{title:'Wavenumber (cm⁻¹)',autorange:'reversed'},yaxis:{title:'Absorbance'}}),CFG);
+    {x,y:m,customdata:bs.map(r=>[r.functional_group||'—',r.compound_class||'—',r.biological_relevance||'—',r.region]),type:'scatter',mode:'lines',name:'Mean',line:{color:'#2980b9',width:2.2},hovertemplate:'<b>%{x:.0f} cm⁻¹</b>  |  Mean: %{y:.5f}<br><b>%{customdata[0]}</b><br>%{customdata[1]}<br><i style="color:#888">%{customdata[2]}</i><br><span style="color:#aaa">%{customdata[3]}</span><extra>Mean</extra>'},
+  ],L({height:320,xaxis:{title:'Wavenumber (cm⁻¹)',autorange:'reversed'},yaxis:{title:'Absorbance'},shapes:regionShapes()}),CFG);
 }
 
 // chart: top peaks bar
@@ -570,7 +587,7 @@ function plotTopPeaks(res,container){
     marker:{color:tp.map(r=>REGION_COLORS[r.region]||'#2980b9'),opacity:.85},
     text:tp.map(r=>r.functional_group),textposition:'none',
     hovertemplate:'<b>%{x}</b><br>Mean: %{y:.5f}<br>%{text}<extra></extra>',
-  }],L({height:320,margin:{t:10,b:80,l:62,r:20},xaxis:{title:'',tickangle:-40},yaxis:{title:'Mean Absorbance'}}),CFG);
+  }],L({height:340,margin:{t:10,b:100,l:62,r:20},xaxis:{title:'',tickangle:-40,automargin:true},yaxis:{title:'Mean Absorbance'}}),CFG);
 }
 
 // chart: region pie
@@ -580,9 +597,9 @@ function plotRegionPie(res,container){
   const{wrap,d}=cc('Peak Distribution by Spectral Region','rp-'+Date.now());container.appendChild(wrap);
   Plotly.newPlot(d,[{labels,values,type:'pie',hole:0.42,pull:0.02,
     marker:{colors:labels.map(l=>REGION_COLORS[l]||'#2980b9'),line:{color:'#fff',width:2}},
-    textinfo:'percent+label',hoverinfo:'label+value+percent',
-    textfont:{size:10}}],
-    L({height:340,showlegend:false,margin:{t:10,b:10,l:10,r:10}}),CFG);
+    textinfo:'percent',hoverinfo:'label+value+percent',
+    textfont:{size:10.5},insidetextorientation:'radial'}],
+    L({height:360,showlegend:true,legend:{orientation:'h',y:-0.18,font:{size:9.5}},margin:{t:10,b:20,l:10,r:10}}),CFG);
 }
 
 // chart: region boxplot
@@ -590,7 +607,7 @@ function plotRegionBox(res,container){
   const regions=[...new Set(res.binStats.map(r=>r.region))];
   const traces=regions.map(reg=>({y:res.binStats.filter(r=>r.region===reg).map(r=>r.mean_intensity),type:'box',name:reg,marker:{color:REGION_COLORS[reg]||'#2980b9',opacity:.8},line:{width:1.5},boxmean:'sd',hovertemplate:'%{y:.5f}<extra>'+reg+'</extra>'}));
   const{wrap,d}=cc('Intensity Distribution by Spectral Region','rb-'+Date.now());container.appendChild(wrap);
-  Plotly.newPlot(d,traces,L({height:340,showlegend:false,margin:{t:10,b:80,l:62,r:20},xaxis:{tickangle:-35},yaxis:{title:'Mean Absorbance'}}),CFG);
+  Plotly.newPlot(d,traces,L({height:360,showlegend:false,margin:{t:10,b:130,l:62,r:20},xaxis:{tickangle:-40,automargin:true},yaxis:{title:'Mean Absorbance'}}),CFG);
 }
 
 // chart: peak count per run
@@ -602,7 +619,7 @@ function plotPeakCount(res,container){
     marker:{color:res.runNames.map((_,i)=>COLOR_PALETTE[i%COLOR_PALETTE.length]),opacity:.85},
     text:res.runSummary.map(r=>r.n_peaks),textposition:'outside',textfont:{size:10},
     hovertemplate:'<b>%{x}</b><br>Peaks: %{y}<extra></extra>',
-  }],L({height:320,margin:{t:30,b:70,l:52,r:20},xaxis:{tickangle:-30},yaxis:{title:'# Peaks'}}),CFG);
+  }],L({height:320,margin:{t:40,b:90,l:52,r:20},xaxis:{tickangle:-30,automargin:true},yaxis:{title:'# Peaks'}}),CFG);
 }
 
 // chart: intensity heatmap
@@ -612,19 +629,30 @@ function plotHeatmap(res,container){
   const z=res.runNames.map(run=>{const m={};res.binRunMeans.filter(r=>r.run===run).forEach(r=>m[r.bin]=r.intensity);return bins.map(b=>m[b]!==undefined?m[b]:null);});
   const{wrap,d}=cc('Intensity Heatmap — Run × Wavenumber Bin','hm-'+Date.now());container.appendChild(wrap);
   Plotly.newPlot(d,[{z,x:bins.map(String),y:res.runNames,type:'heatmap',colorscale:'RdYlBu',reversescale:true,showscale:true,hovertemplate:'Bin: %{x} cm⁻¹<br>Run: %{y}<br>Intensity: %{z:.5f}<extra></extra>'}],
-    L({height:Math.max(300,res.runNames.length*24+120),margin:{t:10,b:60,l:120,r:20},xaxis:{title:'Bin (cm⁻¹)',nticks:25,tickangle:-40},yaxis:{title:''}}),CFG);
+    L({height:Math.max(320,res.runNames.length*28+130),margin:{t:10,b:70,l:140,r:20},xaxis:{title:'Bin (cm⁻¹)',nticks:20,tickangle:-45,automargin:true},yaxis:{title:'',automargin:true}}),CFG);
 }
 
-// chart: CV
+// chart: CV colored bar (green=low, red=high)
 function plotCV(res,container){
   if(res.isSingle)return;
-  const bs=[...res.binStats].sort((a,b)=>a.bin-b.bin);
-  const{wrap,d}=cc('Coefficient of Variation (%) — inter-run reproducibility','cv-'+Date.now());container.appendChild(wrap);
-  Plotly.newPlot(d,[{
-    x:bs.map(r=>r.bin),y:bs.map(r=>r.cv_pct),type:'scatter',mode:'lines',
-    line:{color:'#e67e22',width:1.8},fill:'tozeroy',fillcolor:'rgba(230,126,34,0.1)',
-    hovertemplate:'<b>%{x:.0f} cm⁻¹</b><br>CV: %{y:.1f}%<extra></extra>',
-  }],L({height:280,xaxis:{title:'Wavenumber (cm⁻¹)',autorange:'reversed'},yaxis:{title:'CV%'}}),CFG);
+  const bs=[...res.binStats].sort((a,b)=>a.bin-b.bin).filter(r=>r.cv_pct!=null&&!isNaN(r.cv_pct));
+  const maxCV=Math.max(...bs.map(r=>r.cv_pct),100);
+  function cvColor(cv){const t=Math.min(cv/maxCV,1);const r=Math.round(t<.5?t*2*255:255);const g=Math.round(t<.5?255:(1-(t-.5)*2)*255);return'rgb('+r+','+g+',0)';}
+  const{wrap,d}=cc('Reproducibility — CV% per Wavenumber Bin','cv-'+Date.now());container.appendChild(wrap);
+  Plotly.newPlot(d,[{x:bs.map(r=>r.bin),y:bs.map(r=>r.cv_pct),type:'bar',marker:{color:bs.map(r=>cvColor(r.cv_pct)),opacity:.9},hovertemplate:'<b>%{x:.0f} cm⁻¹</b><br>CV: %{y:.1f}%<extra></extra>'}],
+    L({height:380,xaxis:{title:'Wavenumber bin (cm⁻¹)',autorange:'reversed'},yaxis:{title:'CV (%)'},margin:{t:30,b:60,l:62,r:20}}),CFG);
+}
+
+// chart: region stacked bar per run
+function plotRegionStackedBar(res,container){
+  const regionNames=[...new Set(res.regionSummary.map(r=>r.region))];
+  const traces=regionNames.map(reg=>({
+    x:res.runNames,y:res.runNames.map(run=>{const f=res.regionSummary.find(r=>r.run===run&&r.region===reg);return f?f.peak_count:0;}),
+    type:'bar',name:reg,marker:{color:REGION_COLORS[reg]||'#2980b9',opacity:.85},
+    hovertemplate:'<b>%{x}</b><br>'+reg+'<br>Peaks: %{y}<extra></extra>',
+  }));
+  const{wrap,d}=cc('Peak Distribution by Spectral Region','rsb-'+Date.now());container.appendChild(wrap);
+  Plotly.newPlot(d,traces,L({height:430,barmode:'stack',xaxis:{title:'Run'},yaxis:{title:'Peak Count'},margin:{t:10,b:60,l:62,r:20},legend:{orientation:'v',x:1.01,y:.5,font:{size:10}}}),CFG);
 }
 
 // chart: consistency bar
@@ -642,7 +670,7 @@ function plotConsistency(res,container){
 function plotComparOverlay(before,after,container){
   const mk=(res,dash,color)=>{const bs=[...res.binStats].sort((a,b)=>a.bin-b.bin);return{x:bs.map(r=>r.bin),y:bs.map(r=>r.mean_intensity),type:'scatter',mode:'lines',name:res.label+' (mean)',line:{dash,width:2.2,color},hovertemplate:'<b>%{x:.0f} cm⁻¹</b><br>'+res.label+' Mean: %{y:.5f}<extra></extra>'};};
   const{wrap,d}=cc('Before vs After — Mean Spectra Comparison','co-'+Date.now());container.appendChild(wrap);
-  Plotly.newPlot(d,[mk(before,'solid','#2980b9'),mk(after,'dash','#e74c3c')],L({height:360,xaxis:{title:'Wavenumber (cm⁻¹)',autorange:'reversed'},yaxis:{title:'Mean Absorbance'}}),CFG);
+  Plotly.newPlot(d,[mk(before,'solid','#2980b9'),mk(after,'dash','#e74c3c')],L({height:360,xaxis:{title:'Wavenumber (cm⁻¹)',autorange:'reversed'},yaxis:{title:'Mean Absorbance'},shapes:regionShapes()}),CFG);
 }
 
 // chart: delta
@@ -653,7 +681,7 @@ function plotDelta(diff,container){
     x:rows.map(r=>r.bin),y:rows.map(r=>r.delta),type:'bar',
     marker:{color:rows.map(r=>r.delta>0?'rgba(231,76,60,0.75)':'rgba(41,128,185,0.75)'),line:{width:0}},
     hovertemplate:'<b>%{x:.0f} cm⁻¹</b><br>Δ = %{y:.6f}<extra></extra>',
-  }],L({height:300,xaxis:{title:'Wavenumber (cm⁻¹)',autorange:'reversed'},yaxis:{title:'Δ Absorbance'},shapes:[{type:'line',x0:0,x1:1,xref:'paper',y0:0,y1:0,line:{color:'#95a5a6',width:1.2}}]}),CFG);
+  }],L({height:300,xaxis:{title:'Wavenumber (cm⁻¹)',autorange:'reversed'},yaxis:{title:'Δ Absorbance'},shapes:[{type:'line',x0:0,x1:1,xref:'paper',y0:0,y1:0,line:{color:'#95a5a6',width:1.2}},...regionShapes()]}),CFG);
 }
 
 // chart: volcano
@@ -683,7 +711,7 @@ function plotRegionCompar(before,after,container){
   Plotly.newPlot(d,[
     {x:regs,y:regs.map(r=>bR[r]),type:'bar',name:'Before',marker:{color:'#2980b9',opacity:.85}},
     {x:regs,y:regs.map(r=>aR[r]),type:'bar',name:'After',marker:{color:'#e74c3c',opacity:.85}},
-  ],L({height:320,barmode:'group',margin:{t:10,b:80,l:62,r:20},xaxis:{tickangle:-30},yaxis:{title:'Total Mean Absorbance'}}),CFG);
+  ],L({height:340,barmode:'group',margin:{t:10,b:130,l:62,r:20},xaxis:{tickangle:-40,automargin:true},yaxis:{title:'Total Mean Absorbance'}}),CFG);
 }
 
 // chart: new/lost scatter
@@ -784,14 +812,6 @@ function buildMode1(res,main,nav){
   // ── Overview
   const s0=sec('m1-overview','Overview','&#128202;','Comprehensive spectroscopic characterisation of <b>'+res.label+'</b> transplant fluid. '+res.nRuns+' run(s) analysed, spanning '+Math.min(...wns).toFixed(0)+'–'+Math.max(...wns).toFixed(0)+' cm⁻¹.');
   s0.innerHTML+=callout('<strong>Objective:</strong> Characterise the fluid composition across all spectral regions. '+(res.isSingle?'Single-run mode: reproducibility statistics unavailable.':'Multi-run mode: full reproducibility and consistency analysis enabled.'),'info');
-  s0.innerHTML+='<div class="kpi-row">'+[
-    kpiCard('Total Bins',res.binStats.length,'unique 10 cm⁻¹ bins'),
-    kpiCard('Runs Analysed',res.nRuns,''),
-    kpiCard('Consistent Peaks',res.highlyConsistent.length,'present in ≥80% of runs','#27ae60'),
-    kpiCard('Wavenumber Range',Math.min(...wns).toFixed(0)+'–'+Math.max(...wns).toFixed(0)+' cm⁻¹',''),
-    kpiCard('Max Mean Intensity',topBin?topBin.mean_intensity.toFixed(4):'0','at '+(topBin?topBin.bin:0)+' cm⁻¹'),
-    kpiCard('Spectral Regions',REGIONS.length,'defined zones'),
-  ].join('')+'</div>';
   if(res.nRuns>1){s0.innerHTML+='<h3 class="sub-h">Per-Run Summary</h3>'+runCards(res);}
   main.appendChild(s0);
   nav.appendChild(navItem('m1-overview','Overview'));
@@ -805,7 +825,7 @@ function buildMode1(res,main,nav){
 
   // ── Peak Assignments
   const s2=sec('m1-assign','Peak Assignments','&#128203;','Peaks detected in ≥80% of runs, mapped to functional groups, bond types, and biological compounds using established IR reference tables.');
-  const hc=[...res.highlyConsistent].sort((a,b)=>a.bin-b.bin);
+  const hc=[...res.highlyConsistent].sort((a,b)=>b.mean_intensity-a.mean_intensity);
   s2.innerHTML+=callout('<strong>'+hc.length+' highly consistent peaks</strong> (present in ≥80% of '+res.nRuns+' run(s)). These represent the reproducible chemical fingerprint of the '+res.label.toLowerCase()+' fluid.','success');
   s2.innerHTML+='<div id="m1-at"></div>';
   main.appendChild(s2);
@@ -823,15 +843,14 @@ function buildMode1(res,main,nav){
   const tp_c=document.createElement('div'),rb_c=document.createElement('div');
   sg.appendChild(tp_c);sg.appendChild(rb_c);s3.appendChild(sg);
   plotTopPeaks(res,tp_c);plotRegionBox(res,rb_c);
-  if(!res.isSingle){const g2=document.createElement('div');g2.className='plot-2col';const pc_c=document.createElement('div'),hm_c=document.createElement('div');g2.appendChild(pc_c);g2.appendChild(hm_c);s3.appendChild(g2);plotPeakCount(res,pc_c);plotHeatmap(res,hm_c);}
+  if(!res.isSingle){plotPeakCount(res,s3);plotHeatmap(res,s3);}
   else s3.innerHTML+='<div class="callout info">Peak-count bar and intensity heatmap require ≥2 runs.</div>';
   main.appendChild(s3);
   nav.appendChild(navItem('m1-stats','Statistics'));
 
   // ── Regions
   const s4=sec('m1-regions','Spectral Regions','&#127758;','Peak count and intensity distribution across the 9 defined IR spectral regions.');
-  const rg=document.createElement('div');rg.className='plot-2col';const rd_c=document.createElement('div'),rp_c=document.createElement('div');rg.appendChild(rd_c);rg.appendChild(rp_c);s4.appendChild(rg);
-  plotRegionPie(res,rd_c);plotRegionBox(res,rp_c);
+  plotRegionStackedBar(res,s4);
   main.appendChild(s4);
   nav.appendChild(navItem('m1-regions','Regions'));
 
@@ -978,7 +997,12 @@ function buildNestedTabs(res,px){
 
 function switchTab2(px,idx){
   document.querySelectorAll('#'+px+'-tabbar .tab-item').forEach((t,i)=>t.classList.toggle('active',i===idx));
-  ['p0','p1','p2','p3','p4'].forEach((p,i)=>{const el=eid(px+'-'+p);if(el)el.classList.toggle('active',i===idx);});
+  ['p0','p1','p2','p3','p4'].forEach((p,i)=>{
+    const el=eid(px+'-'+p);
+    if(!el)return;
+    el.classList.toggle('active',i===idx);
+    if(i===idx) setTimeout(()=>el.querySelectorAll('.js-plotly-plot').forEach(gd=>Plotly.Plots.resize(gd)),30);
+  });
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1017,19 +1041,25 @@ function saveBlob(blob,name){const a=document.createElement('a');a.href=URL.crea
 // ══════════════════════════════════════════════════════════
 // RESULT HEADER
 // ══════════════════════════════════════════════════════════
-function buildHeader(label,nRuns,nBins,nConsistent,verdict){
+function buildHeader(label,nRuns,nBins,nConsistent,verdict,extras){
   const isCmp=!!verdict;
   const vc={Low:'#d4edda',Moderate:'#fff3cd',High:'#f8d7da'};
   const vtc={Low:'#155724',Moderate:'#856404',High:'#721c24'};
   const vv=verdict||null;
+  extras=extras||{};
+  function ri(lbl,val,sub){return'<div class="rh-item"><span class="ri-lbl">'+lbl+'</span><span class="ri-val">'+val+'</span>'+(sub?'<span class="ri-sub">'+sub+'</span>':'')+'</div>';}
+  let items=[
+    ri('Total Bins',nBins,'unique 10 cm⁻¹ bins'),
+    ri('Runs',nRuns,'analysed'),
+    ri('Consistent Peaks',nConsistent,'≥80% of runs'),
+  ];
+  if(extras.wnMin!=null)items.push(ri('Wavenumber Range',extras.wnMin+'–'+extras.wnMax,'cm⁻¹'));
+  if(extras.topInt!=null)items.push(ri('Max Mean Intensity',extras.topInt.toFixed(4),'at '+extras.topBin+' cm⁻¹'));
+  if(extras.mode)items.push(ri('Mode',extras.mode,''));
+  if(vv)items.push(ri('Toxicity','<span class="verdict-badge '+vv+'" style="background:'+vc[vv]+';color:'+vtc[vv]+';font-size:.85rem;padding:3px 10px;margin:0">'+vv+'</span>',''));
   let h='<div class="result-header"><h1>FTIR Spectroscopic Analysis — Transplant Fluid</h1>'+
-    '<p class="subtitle">'+(isCmp?'Before vs After comparison':''+label+' fluid characterisation')+' &nbsp;|&nbsp; '+nRuns+' run'+(nRuns>1?'s':'')+' &nbsp;|&nbsp; ~400–3900 cm⁻¹</p>'+
-    '<div class="rh-meta">'+
-    '<div class="rh-item"><span>Bins Detected</span><b>'+nBins+'</b></div>'+
-    '<div class="rh-item"><span>Runs Analysed</span><b>'+nRuns+'</b></div>'+
-    '<div class="rh-item"><span>Consistent Peaks</span><b>'+nConsistent+'</b></div>'+
-    (vv?'<div class="rh-item"><span>Toxicity Verdict</span><b><span class="verdict-badge '+vv+'" style="background:'+vc[vv]+';color:'+vtc[vv]+'">'+vv+'</span></b></div>':'')+
-    '</div>'+
+    '<p class="subtitle">'+(isCmp?'Before vs After comparison':label+' fluid characterisation')+' &nbsp;|&nbsp; '+nRuns+' run'+(nRuns>1?'s':'')+' &nbsp;|&nbsp; ~400–3900 cm⁻¹</p>'+
+    '<div class="rh-meta">'+items.join('')+'</div>'+
     '<button class="back-btn" onclick="goBack()">&#8592; New Analysis</button>'+
     '</div>';
   return h;
@@ -1052,12 +1082,13 @@ async function runAll(){
 
       eid('result-screen').style.display='flex';
       eid('upload-screen').style.display='none';
-      eid('rh-area').innerHTML=buildHeader(label,res.nRuns,res.binStats.length,res.highlyConsistent.length,null);
+      const _wns=res.allData.map(r=>r.wavenumber);const _tb=[...res.binStats].sort((a,b)=>b.mean_intensity-a.mean_intensity)[0];
+      eid('rh-area').innerHTML=buildHeader(label,res.nRuns,res.binStats.length,res.highlyConsistent.length,null,{wnMin:Math.round(Math.min(..._wns)),wnMax:Math.round(Math.max(..._wns)),topInt:_tb?_tb.mean_intensity:0,topBin:_tb?_tb.bin:0,mode:'1 — Single-side'});
       eid('rh-nav').innerHTML='';
       eid('rh-main').innerHTML='';
       buildMode1(res,eid('rh-main'),eid('rh-nav'));
       addDLBar(false);
-      setTimeout(initScrollSpy,300);
+      setTimeout(()=>{window.dispatchEvent(new Event('resize'));initScrollSpy();},100);
     }else{
       const bf=eid('beforeFiles').files,af=eid('afterFiles').files;
       if(!bf.length||!af.length){alert('Please upload both Before and After files.');return;}
@@ -1078,7 +1109,7 @@ async function runAll(){
       eid('rh-main').innerHTML='';
       buildMode2(before,after,diff,eid('rh-main'),eid('rh-nav'));
       addDLBar(true);
-      setTimeout(initScrollSpy,300);
+      setTimeout(()=>{window.dispatchEvent(new Event('resize'));initScrollSpy();},100);
     }
   }catch(err){
     errbox.innerHTML='<div class="err-box"><strong>Error:</strong> '+err.message+'<br><pre style="font-size:.72rem;margin-top:8px;white-space:pre-wrap">'+(err.stack||'')+'</pre></div>';
